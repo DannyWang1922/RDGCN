@@ -3,8 +3,8 @@ import numpy as np
 import torch
 from torch_geometric.data import InMemoryDataset
 import pandas as pd
-from utiles import load_txt_to_list, matrix_to_pair, get_RNA_embedding_feature, get_disease_feature, get_miRNA_feature, \
-    bulit_integrated_similarity
+from utiles import load_txt_to_list, matrix_to_pair, get_miRNA_embedding_feature, get_similarity_feature, \
+    bulit_integrated_similarity, get_association_feature
 from torch_geometric.data import HeteroData
 import torch_geometric.transforms as T
 
@@ -66,19 +66,25 @@ class RDGCNDataset(InMemoryDataset):
                                                                1)  # list to tensor, transpose tensor
         miRNA_disease_association_edge_index = miRNA_disease_association_edge_index - 1
 
-        # miRNA_feature ======================================================================================
-        miRNA_feature = get_RNA_embedding_feature("data/miRNA_disease/miRNA_idx.txt")
+        # miRNA_feature and disease_feature ============================================================================
+        miRNA_embedding_feature = get_miRNA_embedding_feature("data/miRNA_disease/miRNA_idx.txt")
 
-        # disease_feature ======================================================================================
-        disease_feature = get_disease_feature("data/preprocessed/disease_similarity_integrated.txt")
+        miRNA_similarity_feature = get_similarity_feature("data/preprocessed/miRNA_similarity_integrated.txt")
+        disease_similarity_feature = get_similarity_feature("data/preprocessed/disease_similarity_integrated.txt")
+
+        miRNA_association_feature, disease_association_feature = get_association_feature("data/miRNA_disease/miRNA_disease_association.txt")
 
         # Construct HeteroData object ================================================================================
         data = HeteroData()
         data["miRNA"].node_id = miRNA_idx_tensor
         data["disease"].node_id = disease_idx_tensor
 
-        data["miRNA"].x = miRNA_feature
-        data["disease"].x = disease_feature
+        data["miRNA"].embedding_feature = miRNA_embedding_feature
+        data["miRNA"].similarity_feature = miRNA_similarity_feature
+        data["miRNA"].association_feature = miRNA_association_feature
+
+        data["disease"].similarity_feature = disease_similarity_feature
+        data["disease"].association_feature = disease_association_feature
 
         data["miRNA", "similar", "miRNA"].edge_index = miRNA_similarity_edge_index
         data["disease", "similar", "disease"].edge_index = disease_similarity_edge_index

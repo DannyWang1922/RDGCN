@@ -61,6 +61,7 @@ def RDGCN(epochs_num, random_seed):
     print("Average ROC AUC:", test_results_matrix[4])
     print("Average PR AUC:", test_results_matrix[5])
 
+
 def cross_validation_with_val_set(data,
                                   device,
                                   epochs_num,
@@ -71,7 +72,6 @@ def cross_validation_with_val_set(data,
                                   miRNA_features=96000,
                                   disease_features=383,
                                   hidden_channels=256):
-
     edge_label_index = data["miRNA", "associated", "disease"].edge_label_index
     edge_label_index_transposed = edge_label_index.transpose(0, 1)  # change shape from [2, 3258] to [3258, 2]
     edge_label = data["miRNA", "associated", "disease"].edge_label  # no need to convert the shape
@@ -110,7 +110,8 @@ def cross_validation_with_val_set(data,
             shuffle=True,
         )
 
-        model = Model_SAGEConv(data=data, miRNA_features=miRNA_features, disease_features=disease_features, hidden_channels=hidden_channels)
+        model = Model_SAGEConv(data=data, miRNA_features=miRNA_features, disease_features=disease_features,
+                               hidden_channels=hidden_channels)
         model = model.to(device)
         optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
 
@@ -122,14 +123,13 @@ def cross_validation_with_val_set(data,
         print()
         acc, precision, recall, f1, roc_auc, pr_auc = test(model, test_loader, device)
         print(f"Test: Correct predictions: {acc:.4f}, F1 score: {f1:.4f}, ROC: {roc_auc:.4f}, PR: {pr_auc:.4f}")
-        test_results_matrix[fold-1, :] = acc, precision, recall, f1, roc_auc, pr_auc
+        test_results_matrix[fold - 1, :] = acc, precision, recall, f1, roc_auc, pr_auc
         print()
         print()
 
     average_test_results = np.mean(test_results_matrix, axis=0)
 
     return average_test_results
-
 
 
 def train(model, optimizer, train_loader, device):

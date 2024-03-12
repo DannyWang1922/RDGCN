@@ -50,8 +50,8 @@ class Model(torch.nn.Module):
 
     def forward(self, data: HeteroData):
         x_dict = {
-            "miRNA": self.miRNA_lin(data["miRNA"].x) + self.miRNA_emb(data["miRNA"].node_id),
-            "disease": self.disease_lin(data["disease"].x) + self.disease_emb(data["disease"].node_id)
+            "miRNA": self.miRNA_lin(data["miRNA"].embedding_feature) + self.miRNA_emb(data["miRNA"].node_id),
+            "disease": self.disease_lin(data["disease"].similarity_feature) + self.disease_emb(data["disease"].node_id)
         }
         x_dict = self.gnn(x_dict, data.edge_index_dict)
 

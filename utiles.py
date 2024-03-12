@@ -4,10 +4,11 @@ import pandas as pd
 import torch
 from matplotlib import pyplot as plt
 
-from sklearn.metrics import roc_auc_score, f1_score, average_precision_score, precision_score, recall_score, roc_curve, precision_recall_curve
+from sklearn.metrics import roc_auc_score, f1_score, average_precision_score, precision_score, recall_score, roc_curve, \
+    precision_recall_curve
 
 
-def get_RNA_embedding_feature(miRNA_idx_file):
+def get_miRNA_embedding_feature(miRNA_idx_file):
     miRNA_idx_file = load_txt_to_list(miRNA_idx_file)
     df_miRNA_idx = pd.DataFrame(miRNA_idx_file, columns=["miRNA_ID", "miRNA"])
     df_miRNA_idx_mapping = df_miRNA_idx.set_index("miRNA_ID")
@@ -35,20 +36,24 @@ def get_RNA_embedding_feature(miRNA_idx_file):
     node_features_tensor = node_features_tensor.view(node_features_tensor.size(0), -1)
     return node_features_tensor
 
-def get_disease_feature(disease_similarity_matrix):
-    disease_similarity_matrix = np.loadtxt(disease_similarity_matrix)
-    disease_similarity_matrix_float = [[float(item) for item in sublist] for sublist in disease_similarity_matrix]
-    disease_similarity_array = np.array(disease_similarity_matrix_float)
-    disease_similarity_tensor = torch.tensor(disease_similarity_array, dtype=torch.float32)
-    return disease_similarity_tensor
 
-def get_miRNA_feature(miRNA_similarity_matrix):
-    miRNA_similarity_matrix = np.loadtxt(miRNA_similarity_matrix)
-    miRNA_similarity_matrix_float = [[float(item) for item in sublist] for sublist in miRNA_similarity_matrix]
-    miRNA_similarity_array = np.array(miRNA_similarity_matrix_float)
-    miRNA_similarity_tensor = torch.tensor(miRNA_similarity_array, dtype=torch.float32)
-    return miRNA_similarity_tensor
+def get_similarity_feature(similarity_matrix):
+    similarity_matrix = np.loadtxt(similarity_matrix)
+    similarity_matrix_float = [[float(item) for item in sublist] for sublist in similarity_matrix]
+    similarity_array = np.array(similarity_matrix_float)
+    similarity_tensor = torch.tensor(similarity_array, dtype=torch.float32)
+    return similarity_tensor
 
+def get_association_feature(association_file):
+    miRNA_disease_association = np.loadtxt(association_file, delimiter='\t',dtype=int)
+    relationship_matrix = np.zeros((495, 383))
+    for mirna, disease in miRNA_disease_association:
+        relationship_matrix[mirna - 1, disease - 1] = 1    # Minus 1 because Python's index starts at 0
+
+    transposed_matrix = relationship_matrix.T
+    miRNA_association_feature = relationship_matrix
+    disease_association_feature = transposed_matrix
+    return miRNA_association_feature, disease_association_feature
 
 
 def run_model(test_loader, model):
@@ -68,8 +73,8 @@ def run_model(test_loader, model):
 
     return pred, binary_pred, ground_truth
 
-def evaluation_criteria(pred, binary_pred, ground_truth):
 
+def evaluation_criteria(pred, binary_pred, ground_truth):
     correct = (binary_pred == ground_truth).sum()
     acc = correct / len(binary_pred)
     precision = precision_score(ground_truth, binary_pred)
@@ -79,6 +84,7 @@ def evaluation_criteria(pred, binary_pred, ground_truth):
     auc_prc = average_precision_score(ground_truth, pred)
 
     return correct, acc, precision, recall, f1, auc_roc, auc_prc
+
 
 def plot_ROC(ground_truth, pred):
     fpr, tpr, _ = roc_curve(ground_truth, pred)
@@ -110,6 +116,7 @@ def plot_PR(ground_truth, pred):
     plt.savefig('training_output/pr_curve.png')
     plt.show()
 
+
 def load_txt_to_list(file_name):
     data = []
     with open(file_name, 'r') as file:
@@ -124,8 +131,9 @@ def matrix_to_pair(similarity_matrix):
     for i in range(len(similarity_matrix)):
         for j in range(i, len(similarity_matrix)):  # Only work with the upper triangle
             if similarity_matrix[i][j] == 1:
-                similarity_pair_list.append((i+1, j+1))
+                similarity_pair_list.append((i + 1, j + 1))
     return similarity_pair_list
+
 
 def bulit_integrated_similarity():
     # Define functions for Gaussian similarity
@@ -170,12 +178,3 @@ def bulit_integrated_similarity():
                delimiter=' ')
     np.savetxt('data/preprocessed/disease_similarity_integrated.txt', disease_similarity_integrated, fmt='%f',
                delimiter=' ')
-
-
-
-
-
-
-
-
-
