@@ -17,13 +17,12 @@ from torch_geometric.transforms import RandomLinkSplit
 from RDGCN_Dataset import RDGCNDataset
 from model_SAGEConv import Model as Model_SAGEConv
 from utiles import plot_ROC, plot_PR
+from model_RDGCN import RDGCNModel, RDGCNEncoder, RDGCNDecoder
 
 
 def RDGCN(epochs_num, random_seed):
     if torch.cuda.is_available():
         device = torch.device('cuda')
-    elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
-        device = torch.device('mps')
     else:
         device = torch.device('cpu')
 
@@ -60,6 +59,8 @@ def RDGCN(epochs_num, random_seed):
     print("Average F1 score:", test_results_matrix[3])
     print("Average ROC AUC:", test_results_matrix[4])
     print("Average PR AUC:", test_results_matrix[5])
+
+
 
 
 def cross_validation_with_val_set(data,
@@ -110,8 +111,13 @@ def cross_validation_with_val_set(data,
             shuffle=True,
         )
 
-        model = Model_SAGEConv(data=data, miRNA_features=miRNA_features, disease_features=disease_features,
-                               hidden_channels=hidden_channels)
+        # model = Model_SAGEConv(data=data, miRNA_features=miRNA_features, disease_features=disease_features,
+        #                        hidden_channels=hidden_channels)
+
+        model = RDGCNModel(RDGCNEncoder(data=data, miRNA_features=miRNA_features, disease_features=disease_features,
+                                        hidden_channels=hidden_channels, out_channels=64),
+                           RDGCNDecoder())
+
         model = model.to(device)
         optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
 
