@@ -39,13 +39,13 @@ def get_miRNA_embedding_feature(miRNA_idx_file):
 
 def get_similarity_feature(similarity_matrix):
     similarity_matrix = np.loadtxt(similarity_matrix)
-    similarity_matrix_float = [[float(item) for item in sublist] for sublist in similarity_matrix]
+    similarity_matrix_float = [[int(item) for item in sublist] for sublist in similarity_matrix]
     similarity_array = np.array(similarity_matrix_float)
     similarity_tensor = torch.tensor(similarity_array, dtype=torch.float32)
     return similarity_tensor
 
 def get_association_feature(association_file):
-    miRNA_disease_association = np.loadtxt(association_file, delimiter='\t',dtype=int)
+    miRNA_disease_association = np.loadtxt(association_file, delimiter='\t', dtype=int)
     relationship_matrix = np.zeros((495, 383))
     for mirna, disease in miRNA_disease_association:
         relationship_matrix[mirna - 1, disease - 1] = 1    # Minus 1 because Python's index starts at 0
@@ -53,6 +53,10 @@ def get_association_feature(association_file):
     transposed_matrix = relationship_matrix.T
     miRNA_association_feature = relationship_matrix
     disease_association_feature = transposed_matrix
+
+    miRNA_association_feature = torch.tensor(miRNA_association_feature, dtype=torch.float32)
+    disease_association_feature= torch.tensor(disease_association_feature, dtype=torch.float32)
+
     return miRNA_association_feature, disease_association_feature
 
 

@@ -66,19 +66,19 @@ def RDGCN(epochs_num, random_seed):
 def cross_validation_with_val_set(data,
                                   device,
                                   epochs_num,
-                                  n_splits=5,
+                                  n_splits=2,
                                   batch_size=256,
                                   lr=0.001,
                                   weight_decay=0.01,
                                   miRNA_features=96000,
                                   disease_features=383,
-                                  hidden_channels=256):
+                                  in_dims=256):
     edge_label_index = data["miRNA", "associated", "disease"].edge_label_index
     edge_label_index_transposed = edge_label_index.transpose(0, 1)  # change shape from [2, 3258] to [3258, 2]
     edge_label = data["miRNA", "associated", "disease"].edge_label  # no need to convert the shape
 
     fold = 0
-    test_results_matrix = np.zeros((5, 6))
+    test_results_matrix = np.zeros((n_splits, 6))
     skf = StratifiedKFold(n_splits=n_splits)
 
     for train_index, test_index in skf.split(edge_label_index_transposed, edge_label):  # 5 fold
@@ -114,8 +114,7 @@ def cross_validation_with_val_set(data,
         # model = Model_SAGEConv(data=data, miRNA_features=miRNA_features, disease_features=disease_features,
         #                        hidden_channels=hidden_channels)
 
-        model = RDGCNModel(RDGCNEncoder(data=data, miRNA_features=miRNA_features, disease_features=disease_features,
-                                        hidden_channels=hidden_channels, out_channels=64),
+        model = RDGCNModel(RDGCNEncoder(data=data, in_dims=in_dims, out_dims=64, slope=0.2),
                            RDGCNDecoder())
 
         model = model.to(device)
@@ -134,7 +133,6 @@ def cross_validation_with_val_set(data,
         print()
 
     average_test_results = np.mean(test_results_matrix, axis=0)
-
     return average_test_results
 
 
@@ -212,4 +210,4 @@ def test(model, test_loader, device):
 
 
 if __name__ == '__main__':
-    RDGCN(2, 126)
+    RDGCN(5, 126)

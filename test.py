@@ -1,24 +1,63 @@
+from RDGCN_Dataset import RDGCNDataset
+# for node_type in data.node_types:
+#     print(f"Node type: {node_type}")
+#
+#     # 获取所有节点特征
+#     for feature_key, feature_value in data[node_type].items():
+#         if feature_key != "node_id":
+#             print(f"  Feature: {feature_key}")
+#             print(f"    Shape: {feature_value.size()}")
+
+# def generate_feature_dim(data, hidden_dim, output_dim):
+#     feature_dims = {}
+#     for node_type in data.node_types:
+#         feature_dims[node_type] = {}
+#         for feature_key, feature_value in data[node_type].items():
+#             if feature_key != "node_id":
+#                 input_dim = feature_value.size(1)
+#                 feature_dims[node_type][feature_key] = {
+#                     'input_dim': input_dim,
+#                     'hidden_dim': hidden_dim,
+#                     'output_dim': output_dim
+#                 }
+#
+#     return feature_dims
+#
+# # 使用示例
+# hidden_dim = 128  # 手动设置的隐藏层维度
+# output_dim = 64   # 手动设置的输出层维度
+#
+# # 自动生成feature_dims
+# feature_dims = generate_feature_dim(data, hidden_dim, output_dim)
+# print(feature_dims)
+#
+# for node_type, features in feature_dims.items():
+#     for feature_name, dims in features.items():
+#         print(node_type, " ", feature_name)
+
+dataset = RDGCNDataset(root="./data")
+data = dataset[0]
+# print(data)
+
+# for node_type in data.node_types:
+#     print("Node ", node_type)
+#     for feature_key, feature_value in data[node_type].items():
+#         if feature_key != "node_id":
+#             print(feature_key, feature_value.shape[1])
+
+
 import numpy as np
-import torch
 
+# 替换为你的 .npy 文件路径
+file_path = 'data/miRNA_embedding/hsa-mir-16.npy'
 
-def get_association_feature(association_file):
-    miRNA_disease_association = np.loadtxt(association_file, delimiter='\t',dtype=int)
+# 加载 .npy 文件
+data = np.load(file_path)
 
-    relationship_matrix = np.zeros((495, 383))
-    for mirna, disease in miRNA_disease_association:
-        # 减1是因为Python的索引从0开始
-        relationship_matrix[mirna - 1, disease - 1] = 1
+# 打印数据的形状和数据类型
+print(f'Shape of the data: {data.shape}')
+print(f'Data type of the data: {data.dtype}')
 
-    transposed_matrix = relationship_matrix.T
-
-    miRNA_association_feature = relationship_matrix
-    disease_association_feature = transposed_matrix
-
-    return miRNA_association_feature, disease_association_feature
-
-
-
-
-
-get_association_feature("data/miRNA_disease/miRNA_disease_association.txt")
+# 打印数据的前几个元素（例如前五个）
+print('First few elements of the data:')
+print(data[:5])

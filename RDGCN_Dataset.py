@@ -46,7 +46,7 @@ class RDGCNDataset(InMemoryDataset):
         disease_idx_tensor = disease_idx_tensor - 1
 
         # miRNA similarity ====================================================================================================
-        miRNA_similarity_matrix = np.loadtxt('data/preprocessed/miRNA_similarity_integrated.txt', delimiter=' ', dtype=float)  # (495, 495)\
+        miRNA_similarity_matrix = np.loadtxt('data/preprocessed/miRNA_similarity_integrated.txt', delimiter=' ', dtype=float) # (495, 495)\
         miRNA_similarity_pair_list = matrix_to_pair(miRNA_similarity_matrix)  # 32385  matrix to pair
         miRNA_similarity_edge_index = torch.transpose(torch.tensor(miRNA_similarity_pair_list), 0,
                                                       1)  # list to tensor, transpose tensor
