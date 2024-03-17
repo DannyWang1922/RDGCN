@@ -16,11 +16,17 @@ from torch_geometric.loader import LinkLoader, LinkNeighborLoader
 from torch_geometric.transforms import RandomLinkSplit
 from RDGCN_Dataset import RDGCNDataset
 from model_SAGEConv import Model as Model_SAGEConv
-from utiles import plot_ROC, plot_PR
+from utiles import plot_ROC, plot_PR, get_result_dir
 from model_RDGCN import RDGCNModel, RDGCNEncoder, RDGCNDecoder
 
 
-def RDGCN(epochs_num, random_seed):
+def RDGCN(epochs_num=300,
+          n_splits=2,
+          batch_size=256,
+          lr=0.001,
+          weight_decay=0.01,
+          in_dims=256,
+          random_seed=126):
     if torch.cuda.is_available():
         device = torch.device('cuda')
     else:
@@ -51,7 +57,15 @@ def RDGCN(epochs_num, random_seed):
     )
     data, _, _ = transform(data)
 
-    test_results_matrix = cross_validation_with_val_set(data, device, epochs_num)
+    test_results_matrix, model_entity = cross_validation_with_val_set(
+        data=data,
+        device=device,
+        epochs_num=epochs_num,
+        n_splits=n_splits,
+        batch_size=batch_size,
+        lr=lr,
+        weight_decay=weight_decay,
+        in_dims=in_dims)
 
     print("Average accuracy: ", test_results_matrix[0])
     print("Average precision: ", test_results_matrix[1])
@@ -60,25 +74,30 @@ def RDGCN(epochs_num, random_seed):
     print("Average ROC AUC:", test_results_matrix[4])
     print("Average PR AUC:", test_results_matrix[5])
 
+    fold, roc, model, all_ground_truth, all_pred = model_entity[0], model_entity[1], model_entity[2], model_entity[3], model_entity[4]
+    print(f"The ROC of beat model is {roc}")
+    save_dir = get_result_dir()
+    torch.save(model.state_dict(), f'{save_dir}/model_state_dict_{roc}.pth')
 
+    plot_ROC(all_ground_truth, all_pred, save_dir)
+    plot_PR(all_ground_truth, all_pred, save_dir)
 
 
 def cross_validation_with_val_set(data,
                                   device,
                                   epochs_num,
-                                  n_splits=2,
-                                  batch_size=256,
-                                  lr=0.001,
-                                  weight_decay=0.01,
-                                  miRNA_features=96000,
-                                  disease_features=383,
-                                  in_dims=256):
+                                  n_splits,
+                                  batch_size,
+                                  lr,
+                                  weight_decay,
+                                  in_dims):
     edge_label_index = data["miRNA", "associated", "disease"].edge_label_index
     edge_label_index_transposed = edge_label_index.transpose(0, 1)  # change shape from [2, 3258] to [3258, 2]
     edge_label = data["miRNA", "associated", "disease"].edge_label  # no need to convert the shape
 
     fold = 0
-    test_results_matrix = np.zeros((n_splits, 6))
+    test_results_matrix = np.zeros((n_splits, 6)) # store evaluation parameters of the model [acc, precision, recall, f1, roc_auc, pr_auc]
+    model_matrix = [] # 2D list. [fold, auc, model]
     skf = StratifiedKFold(n_splits=n_splits)
 
     for train_index, test_index in skf.split(edge_label_index_transposed, edge_label):  # 5 fold
@@ -124,16 +143,20 @@ def cross_validation_with_val_set(data,
             train_loss, acc, precision, recall, f1, roc_auc, pr_auc = train(model, optimizer, train_loader, device)
             print(f"Epoch: {epoch:03d}, Train Loss: {train_loss:.4f}")
             print(f"Train: Correct predictions: {acc:.4f}, F1 score: {f1:.4f}, ROC: {roc_auc:.4f}, PR: {pr_auc:.4f}")
+            acc, precision, recall, f1, roc_auc, pr_auc, model, all_ground_truth, all_pred = test(model, test_loader,                                                                             device)
+            print(f"Test: Correct predictions: {acc:.4f}, F1 score: {f1:.4f}, ROC: {roc_auc:.4f}, PR: {pr_auc:.4f}")
 
         print()
-        acc, precision, recall, f1, roc_auc, pr_auc = test(model, test_loader, device)
-        print(f"Test: Correct predictions: {acc:.4f}, F1 score: {f1:.4f}, ROC: {roc_auc:.4f}, PR: {pr_auc:.4f}")
+        acc, precision, recall, f1, roc_auc, pr_auc, model, all_ground_truth, all_pred = test(model, test_loader, device)
+        print(f"Final Test: Correct predictions: {acc:.4f}, F1 score: {f1:.4f}, ROC: {roc_auc:.4f}, PR: {pr_auc:.4f}")
         test_results_matrix[fold - 1, :] = acc, precision, recall, f1, roc_auc, pr_auc
-        print()
+        model_matrix.append([fold-1, roc_auc, model, all_ground_truth, all_pred]) # add model in model_matrix
         print()
 
     average_test_results = np.mean(test_results_matrix, axis=0)
-    return average_test_results
+    model_matrix.sort(key=lambda x: x[1], reverse=True)
+
+    return average_test_results, model_matrix[0]
 
 
 def train(model, optimizer, train_loader, device):
@@ -206,8 +229,14 @@ def test(model, test_loader, device):
     roc_auc = roc_auc_score(all_ground_truth, all_pred)  # needs logistic pred
     pr_auc = average_precision_score(all_ground_truth, all_pred)
 
-    return acc, precision, recall, f1, roc_auc, pr_auc
+    return acc, precision, recall, f1, roc_auc, pr_auc, model, all_ground_truth, all_pred
 
 
 if __name__ == '__main__':
-    RDGCN(5, 126)
+    RDGCN(epochs_num=100,
+          n_splits=5,
+          batch_size=256,
+          lr=0.001,
+          weight_decay=0.01,
+          in_dims=256,
+          random_seed=126)

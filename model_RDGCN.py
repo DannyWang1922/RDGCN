@@ -31,26 +31,41 @@ class GraphSageLayer(torch.nn.Module):
 class RDGCNEncoder(torch.nn.Module):
     def __init__(self, data, in_dims, out_dims, slope):
         super().__init__()
-        self.miRNA_emb_lin = torch.nn.Linear(data["miRNA"].embedding_feature.shape[-1], in_dims)
+
+        # Keep the feature dimensions of input GNN the same
+        self.miRNA_emb_lin = torch.nn.Linear(1024, in_dims)
         self.miRNA_sim_lin = torch.nn.Linear(data["miRNA"].similarity_feature.shape[-1], in_dims)
         self.miRNA_ass_lin = torch.nn.Linear(data["miRNA"].association_feature.shape[-1], in_dims)
-
         self.disease_sim_lin = torch.nn.Linear(data["disease"].similarity_feature.shape[-1], in_dims)
         self.disease_ass_lin = torch.nn.Linear(data["disease"].association_feature.shape[-1], in_dims)
 
-        self.updater = FeatureUpdater(data, in_dims, slope)
+        # Controls the weight of each feature before input GNN
+        self.miRNA_emb_weight = torch.nn.Parameter(torch.ones(1))
+        self.miRNA_sim_weight = torch.nn.Parameter(torch.ones(1))
+        self.miRNA_ass_weight = torch.nn.Parameter(torch.ones(1))
+        self.disease_sim_weight = torch.nn.Parameter(torch.ones(1))
+        self.disease_ass_weight = torch.nn.Parameter(torch.ones(1))
+
+        self.updater = FeatureUpdater(data=data, in_dims=in_dims, slope=slope, dropout=0.7)
 
         # Instantiate homogeneous GNN:
-        self.gnn = GNNSAGEConv(in_dims, out_dims)
+        self.gnn = GNNSAGEConv(in_dims, out_dims, slope)
         # Convert GNN model into a heterogeneous variant:
         self.gnn = to_hetero(self.gnn, metadata=data.metadata())
 
     def forward(self, data: HeteroData):
         updated_data = self.updater(data)
 
+        miRNA_emb = self.miRNA_emb_lin(updated_data["miRNA"]["embedding_feature"]) * self.miRNA_emb_weight
+        miRNA_sim = self.miRNA_sim_lin(updated_data["miRNA"]["similarity_feature"]) * self.miRNA_sim_weight
+        miRNA_ass = self.miRNA_ass_lin(updated_data["miRNA"]["association_feature"]) * self.miRNA_ass_weight
+
+        disease_sim = self.disease_sim_lin(updated_data["disease"]["similarity_feature"]) * self.disease_sim_weight
+        disease_ass = self.disease_ass_lin(updated_data["disease"]["association_feature"]) * self.disease_ass_weight
+
         x_dict = {
-            "miRNA": updated_data["miRNA"]["embedding_feature"] + updated_data["miRNA"]["similarity_feature"] + updated_data["miRNA"]["association_feature"],
-            "disease": updated_data["disease"]["similarity_feature"] + updated_data["disease"]["association_feature"]
+            "miRNA": miRNA_emb + miRNA_sim + miRNA_ass,
+            "disease": disease_sim + disease_ass
         }
         x_dict = self.gnn(x_dict, data.edge_index_dict)
         return x_dict
@@ -79,14 +94,15 @@ class RDGCNDecoder(torch.nn.Module):
 
 
 class GNNSAGEConv(torch.nn.Module):
-    def __init__(self, in_channels, out_channels):
+    def __init__(self, in_channels, out_channels, slope):
         super().__init__()
         self.conv1 = SAGEConv(in_channels, out_channels * 2)
         self.conv2 = SAGEConv((-1, -1), out_channels)
+        self.LeakyReLU = LeakyReLU(slope)
 
     def forward(self, x, edge_index):
         x = self.conv1(x, edge_index)
-        x = F.relu(x)
+        x = self.LeakyReLU(x)
         x = self.conv2(x, edge_index)
         return x
 
@@ -117,7 +133,7 @@ class GNNSAGEConv(torch.nn.Module):
 #         return updated_x_dict
 
 class FeatureUpdater(torch.nn.Module):
-    def __init__(self, data, in_dims, slope):
+    def __init__(self, data, in_dims, slope, dropout):
         super(FeatureUpdater, self).__init__()
         self.feature_updaters = ModuleDict()
 
@@ -129,14 +145,13 @@ class FeatureUpdater(torch.nn.Module):
                         self.feature_updaters[node_type][feature_key] = Sequential(
                             Linear(feature_data.shape[1], 1024),
                             LeakyReLU(slope),
-                            Linear(1024, in_dims),
-                            Dropout(0.7)
+                            Dropout(dropout)
                         )
                     else:
                         self.feature_updaters[node_type][feature_key] = Sequential(
-                            Linear(feature_data.shape[1], in_dims),
+                            Linear(feature_data.shape[1], feature_data.shape[1]),
                             LeakyReLU(slope),
-                            Dropout(0.7)
+                            Dropout(dropout)
                         )
 
     def forward(self, data):

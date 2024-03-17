@@ -1,4 +1,5 @@
 from RDGCN_Dataset import RDGCNDataset
+
 # for node_type in data.node_types:
 #     print(f"Node type: {node_type}")
 #
@@ -46,18 +47,38 @@ data = dataset[0]
 #             print(feature_key, feature_value.shape[1])
 
 
-import numpy as np
+# import numpy as np
+#
+# # 替换为你的 .npy 文件路径
+# file_path = 'data/miRNA_embedding/hsa-mir-16.npy'
+#
+# # 加载 .npy 文件
+# data = np.load(file_path)
+#
+# # 打印数据的形状和数据类型
+# print(f'Shape of the data: {data.shape}')
+# print(f'Data type of the data: {data.dtype}')
+#
+# # 打印数据的前几个元素（例如前五个）
+# print('First few elements of the data:')
+# print(data[:5])
 
-# 替换为你的 .npy 文件路径
-file_path = 'data/miRNA_embedding/hsa-mir-16.npy'
+# import os
+#
+# # 获取当前目录
+# current_directory = os.getcwd()
+#
+# # 设置result目录的路径
+# result_directory = os.path.join(current_directory, 'result')
+#
+# # 检查result目录是否存在
+# if not os.path.exists(result_directory):
+#
+#     os.makedirs(result_directory) # 创建result目录
+#     os.makedirs(os.path.join(result_directory, 'result_0'))
+# else:  # result 目录存在
 
-# 加载 .npy 文件
-data = np.load(file_path)
 
-# 打印数据的形状和数据类型
-print(f'Shape of the data: {data.shape}')
-print(f'Data type of the data: {data.dtype}')
+import os
 
-# 打印数据的前几个元素（例如前五个）
-print('First few elements of the data:')
-print(data[:5])
+

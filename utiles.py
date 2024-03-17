@@ -44,18 +44,19 @@ def get_similarity_feature(similarity_matrix):
     similarity_tensor = torch.tensor(similarity_array, dtype=torch.float32)
     return similarity_tensor
 
+
 def get_association_feature(association_file):
     miRNA_disease_association = np.loadtxt(association_file, delimiter='\t', dtype=int)
     relationship_matrix = np.zeros((495, 383))
     for mirna, disease in miRNA_disease_association:
-        relationship_matrix[mirna - 1, disease - 1] = 1    # Minus 1 because Python's index starts at 0
+        relationship_matrix[mirna - 1, disease - 1] = 1  # Minus 1 because Python's index starts at 0
 
     transposed_matrix = relationship_matrix.T
     miRNA_association_feature = relationship_matrix
     disease_association_feature = transposed_matrix
 
     miRNA_association_feature = torch.tensor(miRNA_association_feature, dtype=torch.float32)
-    disease_association_feature= torch.tensor(disease_association_feature, dtype=torch.float32)
+    disease_association_feature = torch.tensor(disease_association_feature, dtype=torch.float32)
 
     return miRNA_association_feature, disease_association_feature
 
@@ -90,11 +91,10 @@ def evaluation_criteria(pred, binary_pred, ground_truth):
     return correct, acc, precision, recall, f1, auc_roc, auc_prc
 
 
-def plot_ROC(ground_truth, pred):
+def plot_ROC(ground_truth, pred, dir):
     fpr, tpr, _ = roc_curve(ground_truth, pred)
-    precision, recall, _ = precision_recall_curve(ground_truth, pred)
 
-    plt.plot(fpr, tpr, color='darkorange', lw=2)
+    plt.plot(fpr, tpr, color='darkorange', lw=2, label='RDGCN')
     plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
     plt.xlim([0.0, 1.0])
     plt.ylim([0.0, 1.05])
@@ -102,22 +102,21 @@ def plot_ROC(ground_truth, pred):
     plt.ylabel('True Positive Rate')
     plt.title('ROC curve')
     plt.legend(loc="lower right")
-    plt.savefig('training_output/roc_curve.png')
+    plt.savefig(f'{dir}/roc_curve.png')
     plt.show()
 
 
-def plot_PR(ground_truth, pred):
-    fpr, tpr, _ = roc_curve(ground_truth, pred)
+def plot_PR(ground_truth, pred, dir):
     precision, recall, _ = precision_recall_curve(ground_truth, pred)
 
-    plt.step(recall, precision, color='b', alpha=0.2, where='post')
+    plt.step(recall, precision, color='b', alpha=0.2, where='post', label='RDGCN')
     plt.fill_between(recall, precision, step='post', alpha=0.2, color='b')
     plt.xlabel('Recall')
     plt.ylabel('Precision')
     plt.ylim([0.0, 1.05])
     plt.xlim([0.0, 1.0])
     plt.title('Precision-Recall curve')
-    plt.savefig('training_output/pr_curve.png')
+    plt.savefig(f'{dir}/pr_curve.png')
     plt.show()
 
 
@@ -182,3 +181,39 @@ def bulit_integrated_similarity():
                delimiter=' ')
     np.savetxt('data/preprocessed/disease_similarity_integrated.txt', disease_similarity_integrated, fmt='%f',
                delimiter=' ')
+
+
+def get_result_dir(base_dir_name="result"):
+    # 1. 检查是否存在result目录，若不存在则创建
+    if not os.path.exists(base_dir_name):
+        os.makedirs(base_dir_name)
+        # print(f"The directory '{base_dir_name}' has been created.")
+
+    # 2. 在result目录中检查是否存在任何子目录，若不存在则创建result_0
+    subdirectories = [d for d in os.listdir(base_dir_name) if os.path.isdir(os.path.join(base_dir_name, d))]
+    if not subdirectories:
+        initial_subdir = os.path.join(base_dir_name, "result_0")
+        os.makedirs(initial_subdir)
+        # print(f"The subdirectory '{initial_subdir}' has been created.")
+        return initial_subdir  # 直接返回，因为这是第一个创建的子目录
+
+    # 3. 获得索引值最大的目录
+    max_index = -1
+    for subdir in subdirectories:
+        if subdir.startswith("result_"):
+            try:
+                index = int(subdir.split("_")[1])
+                if index > max_index:
+                    max_index = index
+            except ValueError:
+                # 如果转换失败，忽略这个子目录
+                continue
+
+    # 4. 创建result/result_{max_index+1}的目录
+    next_index = max_index + 1
+    next_subdir = os.path.join(base_dir_name, f"result_{next_index}")
+    os.makedirs(next_subdir)
+    # print(f"The subdirectory '{next_subdir}' has been created.")
+
+    # 5. 返回上述目录地址
+    return next_subdir
