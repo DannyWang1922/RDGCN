@@ -129,11 +129,11 @@ def load_txt_to_list(file_name):
     return data
 
 
-def matrix_to_pair(similarity_matrix):
+def similarity_matrix_to_similarity_pair(similarity_matrix):
     similarity_pair_list = []
     for i in range(len(similarity_matrix)):
         for j in range(i, len(similarity_matrix)):  # Only work with the upper triangle
-            if similarity_matrix[i][j] == 1:
+            if similarity_matrix[i][j] > 0.5 and similarity_matrix[i][j] !=1:
                 similarity_pair_list.append((i + 1, j + 1))
     return similarity_pair_list
 
@@ -183,7 +183,7 @@ def bulit_integrated_similarity():
                delimiter=' ')
 
 
-def get_result_dir(base_dir_name="result"):
+def get_save_dir(base_dir_name):
     # 1. 检查是否存在result目录，若不存在则创建
     if not os.path.exists(base_dir_name):
         os.makedirs(base_dir_name)
@@ -192,7 +192,7 @@ def get_result_dir(base_dir_name="result"):
     # 2. 在result目录中检查是否存在任何子目录，若不存在则创建result_0
     subdirectories = [d for d in os.listdir(base_dir_name) if os.path.isdir(os.path.join(base_dir_name, d))]
     if not subdirectories:
-        initial_subdir = os.path.join(base_dir_name, "result_0")
+        initial_subdir = os.path.join(base_dir_name, f"{base_dir_name}_0")
         os.makedirs(initial_subdir)
         # print(f"The subdirectory '{initial_subdir}' has been created.")
         return initial_subdir  # 直接返回，因为这是第一个创建的子目录
@@ -200,9 +200,9 @@ def get_result_dir(base_dir_name="result"):
     # 3. 获得索引值最大的目录
     max_index = -1
     for subdir in subdirectories:
-        if subdir.startswith("result_"):
+        if subdir.startswith(f"{base_dir_name}_"):
             try:
-                index = int(subdir.split("_")[1])
+                index = int(subdir.split("_")[-1])
                 if index > max_index:
                     max_index = index
             except ValueError:
@@ -211,9 +211,22 @@ def get_result_dir(base_dir_name="result"):
 
     # 4. 创建result/result_{max_index+1}的目录
     next_index = max_index + 1
-    next_subdir = os.path.join(base_dir_name, f"result_{next_index}")
+    next_subdir = os.path.join(base_dir_name, f"{base_dir_name}_{next_index}")
     os.makedirs(next_subdir)
     # print(f"The subdirectory '{next_subdir}' has been created.")
 
     # 5. 返回上述目录地址
     return next_subdir
+
+def get_all_edge_index(miRNA_num, disease_num):
+    # 生成两个范围的tensor: 0-494 和 0-382
+    range1 = torch.arange(0, miRNA_num, dtype=torch.int64)
+    range2 = torch.arange(0, disease_num, dtype=torch.int64)
+
+    # 使用meshgrid来获取所有组合
+    grid1, grid2 = torch.meshgrid(range1, range2, indexing='ij')
+
+    # 转换为2xn维度的tensor，其中n是所有可能的组合数
+    combination_tensor = torch.stack((grid1.flatten(), grid2.flatten()), dim=0)
+
+    return combination_tensor

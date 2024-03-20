@@ -3,7 +3,7 @@ import numpy as np
 import torch
 from torch_geometric.data import InMemoryDataset
 import pandas as pd
-from utiles import load_txt_to_list, matrix_to_pair, get_miRNA_embedding_feature, get_similarity_feature, \
+from utiles import load_txt_to_list, similarity_matrix_to_similarity_pair, get_miRNA_embedding_feature, get_similarity_feature, \
     bulit_integrated_similarity, get_association_feature
 from torch_geometric.data import HeteroData
 import torch_geometric.transforms as T
@@ -37,7 +37,7 @@ class RDGCNDataset(InMemoryDataset):
         miRNA = load_txt_to_list('data/miRNA_disease/miRNA_idx.txt')
         miRNA_idx = [int(row[0]) for row in miRNA]  # 495
         miRNA_idx_tensor = torch.LongTensor(miRNA_idx)
-        miRNA_idx_tensor = miRNA_idx_tensor - 1
+        miRNA_idx_tensor = miRNA_idx_tensor - 1 # subtract 1 to match the PyG edge index requirement
 
         # disease node ====================================================================================================
         disease = load_txt_to_list('data/miRNA_disease/disease_idx.txt')
@@ -47,14 +47,14 @@ class RDGCNDataset(InMemoryDataset):
 
         # miRNA similarity ====================================================================================================
         miRNA_similarity_matrix = np.loadtxt('data/preprocessed/miRNA_similarity_integrated.txt', delimiter=' ', dtype=float) # (495, 495)\
-        miRNA_similarity_pair_list = matrix_to_pair(miRNA_similarity_matrix)  # 32385  matrix to pair
+        miRNA_similarity_pair_list = similarity_matrix_to_similarity_pair(miRNA_similarity_matrix)  # 32385  matrix to pair
         miRNA_similarity_edge_index = torch.transpose(torch.tensor(miRNA_similarity_pair_list), 0,
                                                       1)  # list to tensor, transpose tensor
         miRNA_similarity_edge_index = miRNA_similarity_edge_index - 1
 
         # disease similarity ===================================================================================================
         disease_similarity_matrix = np.loadtxt('data/preprocessed/disease_similarity_integrated.txt', delimiter=' ', dtype=float)  # (383, 383)
-        disease_similarity_pair_list = matrix_to_pair(disease_similarity_matrix)
+        disease_similarity_pair_list = similarity_matrix_to_similarity_pair(disease_similarity_matrix)
         disease_similarity_edge_index = torch.transpose(torch.tensor(disease_similarity_pair_list), 0,
                                                         1)  # list to tensor, transpose tensor
         disease_similarity_edge_index = disease_similarity_edge_index - 1

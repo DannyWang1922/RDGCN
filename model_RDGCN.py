@@ -17,7 +17,6 @@ class RDGCNModel(torch.nn.Module):
         res = self.decoder(data, x_dict)
         return res
 
-
 class GraphSageLayer(torch.nn.Module):
     def __init__(self, in_channels, out_channels):
         super(GraphSageLayer, self).__init__()
@@ -31,6 +30,7 @@ class GraphSageLayer(torch.nn.Module):
 class RDGCNEncoder(torch.nn.Module):
     def __init__(self, data, in_dims, out_dims, slope):
         super().__init__()
+        self.updater = FeatureUpdater(data=data, in_dims=in_dims, slope=slope, dropout=0.7)
 
         # Keep the feature dimensions of input GNN the same
         self.miRNA_emb_lin = torch.nn.Linear(1024, in_dims)
@@ -45,8 +45,6 @@ class RDGCNEncoder(torch.nn.Module):
         self.miRNA_ass_weight = torch.nn.Parameter(torch.ones(1))
         self.disease_sim_weight = torch.nn.Parameter(torch.ones(1))
         self.disease_ass_weight = torch.nn.Parameter(torch.ones(1))
-
-        self.updater = FeatureUpdater(data=data, in_dims=in_dims, slope=slope, dropout=0.7)
 
         # Instantiate homogeneous GNN:
         self.gnn = GNNSAGEConv(in_dims, out_dims, slope)
@@ -88,9 +86,9 @@ class RDGCNDecoder(torch.nn.Module):
         res = (edge_feature_RNA * edge_feature_disease).sum(dim=-1)
         return res
 
-    def prediction(self, x_miRNA, x_disease):
-        res = torch.matmul(x_miRNA, x_disease.t())
-        return res
+    def all_pairs_scores(self, x_miRNA, x_disease):
+        scores_matrix = torch.matmul(x_miRNA, x_disease.t())
+        return scores_matrix
 
 
 class GNNSAGEConv(torch.nn.Module):
@@ -105,32 +103,6 @@ class GNNSAGEConv(torch.nn.Module):
         x = self.LeakyReLU(x)
         x = self.conv2(x, edge_index)
         return x
-
-
-# class HeteroNodeUpdater(torch.nn.Module):
-#     def __init__(self, data: HeteroData, in_channels, out_channels):
-#         super(HeteroNodeUpdater, self).__init__()
-#         # node_feature_dims: a dictionary mapping node types to their feature dimensions
-#         # hidden_dim: the dimension of the hidden layer for all FNNs
-#         # out_dims: a dictionary mapping node types to their output feature dimensions
-#
-#         self.updaters = ModuleDict()
-#         for node_type, in_features in data.items():
-#             out_features = out_channels.get(node_type, in_features)  # Default to in_features if out_dim is not provided
-#             # Define a two-layer FNN for each node type
-#             self.updaters[node_type] = Sequential(
-#                 Linear(in_features, in_channels),
-#                 ReLU(),
-#                 Linear(in_channels, out_features)
-#             )
-#
-#     def forward(self, x_dict):
-#         # x_dict: a dictionary mapping node types to their feature tensors
-#         updated_x_dict = {}
-#         for node_type, x in x_dict.items():
-#             updater = self.updaters[node_type]
-#             updated_x_dict[node_type] = updater(x)
-#         return updated_x_dict
 
 class FeatureUpdater(torch.nn.Module):
     def __init__(self, data, in_dims, slope, dropout):
@@ -165,33 +137,3 @@ class FeatureUpdater(torch.nn.Module):
                         feature_data)
         return updated_features
 
-
-class NodeUpdate(torch.nn.Module):
-    def __init__(self, feature_size, slope):
-        super(NodeUpdate, self).__init__()
-
-        self.feature_size = feature_size
-        self.leakyrelu = LeakyReLU(slope)
-        self.linear = torch.nn.Linear(feature_size, feature_size)
-        self.dropout = Dropout(0.7)
-
-    def forward(self, nodes):
-        h1 = nodes.data['h1']
-        h1_new = self.dropout(self.leakyrelu(self.linear(h1)))
-        return {'h1': h1_new}
-
-
-def generate_feature_dims(data, hidden_dim, output_dim):
-    feature_dims = {}
-    for node_type in data.node_types:
-        feature_dims[node_type] = {}
-        for feature_key, feature_value in data[node_type].items():
-            if feature_key != "node_id":
-                input_dim = feature_value.size(1)
-                feature_dims[node_type][feature_key] = {
-                    'input_dim': input_dim,
-                    'hidden_dim': hidden_dim,
-                    'output_dim': output_dim
-                }
-
-    return feature_dims

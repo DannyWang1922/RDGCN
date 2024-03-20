@@ -16,7 +16,7 @@ from torch_geometric.loader import LinkLoader, LinkNeighborLoader
 from torch_geometric.transforms import RandomLinkSplit
 from RDGCN_Dataset import RDGCNDataset
 from model_SAGEConv import Model as Model_SAGEConv
-from utiles import plot_ROC, plot_PR, get_result_dir
+from utiles import plot_ROC, plot_PR, get_save_dir
 from model_RDGCN import RDGCNModel, RDGCNEncoder, RDGCNDecoder
 
 
@@ -29,8 +29,12 @@ def RDGCN(epochs_num=300,
           random_seed=126):
     if torch.cuda.is_available():
         device = torch.device('cuda')
+    # elif torch.backends.mps.is_available():
+    #     device = torch.device('mps')
     else:
         device = torch.device('cpu')
+    print("Device: {}".format(device))
+    print()
 
     random.seed(random_seed)
     np.random.seed(random_seed)
@@ -76,7 +80,7 @@ def RDGCN(epochs_num=300,
 
     fold, roc, model, all_ground_truth, all_pred = model_entity[0], model_entity[1], model_entity[2], model_entity[3], model_entity[4]
     print(f"The ROC of beat model is {roc}")
-    save_dir = get_result_dir()
+    save_dir = get_save_dir(base_dir_name="result")
     torch.save(model.state_dict(), f'{save_dir}/model_state_dict_{roc}.pth')
 
     plot_ROC(all_ground_truth, all_pred, save_dir)
@@ -143,15 +147,16 @@ def cross_validation_with_val_set(data,
             train_loss, acc, precision, recall, f1, roc_auc, pr_auc = train(model, optimizer, train_loader, device)
             print(f"Epoch: {epoch:03d}, Train Loss: {train_loss:.4f}")
             print(f"Train: Correct predictions: {acc:.4f}, F1 score: {f1:.4f}, ROC: {roc_auc:.4f}, PR: {pr_auc:.4f}")
-            acc, precision, recall, f1, roc_auc, pr_auc, model, all_ground_truth, all_pred = test(model, test_loader,                                                                             device)
-            print(f"Test: Correct predictions: {acc:.4f}, F1 score: {f1:.4f}, ROC: {roc_auc:.4f}, PR: {pr_auc:.4f}")
+            if epoch % 10 == 0:
+                acc, precision, recall, f1, roc_auc, pr_auc, model, all_ground_truth, all_pred = test(model, test_loader, device)
+                print(f"Test: Correct predictions: {acc:.4f}, F1 score: {f1:.4f}, ROC: {roc_auc:.4f}, PR: {pr_auc:.4f}")
+                print()
 
-        print()
         acc, precision, recall, f1, roc_auc, pr_auc, model, all_ground_truth, all_pred = test(model, test_loader, device)
         print(f"Final Test: Correct predictions: {acc:.4f}, F1 score: {f1:.4f}, ROC: {roc_auc:.4f}, PR: {pr_auc:.4f}")
         test_results_matrix[fold - 1, :] = acc, precision, recall, f1, roc_auc, pr_auc
         model_matrix.append([fold-1, roc_auc, model, all_ground_truth, all_pred]) # add model in model_matrix
-        print()
+        print(f"=============================== End of fold {fold} ===============================")
 
     average_test_results = np.mean(test_results_matrix, axis=0)
     model_matrix.sort(key=lambda x: x[1], reverse=True)
@@ -233,10 +238,10 @@ def test(model, test_loader, device):
 
 
 if __name__ == '__main__':
-    RDGCN(epochs_num=100,
+    RDGCN(epochs_num=300,
           n_splits=5,
           batch_size=256,
           lr=0.001,
           weight_decay=0.01,
           in_dims=256,
-          random_seed=126)
+          random_seed=42)
