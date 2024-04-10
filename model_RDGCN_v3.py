@@ -5,7 +5,8 @@ from torch_geometric.data import HeteroData
 from torch_geometric.nn import SAGEConv, to_hetero, RGCNConv
 import torch.nn.functional as F
 
-class RDGCNModel(torch.nn.Module):
+
+class RDGCNModel_v3(torch.nn.Module):
     def __init__(self, encoder, decoder):
         super().__init__()
         self.encoder = encoder
@@ -16,49 +17,82 @@ class RDGCNModel(torch.nn.Module):
         res = self.decoder(data, x_dict)
         return res
 
-class RDGCNEncoder(torch.nn.Module):
+
+class RDGCNEncoder_v3(torch.nn.Module):
     def __init__(self, data, in_dims, out_dims, slope):
         super().__init__()
         self.updater = FeatureUpdater(data=data, in_dims=in_dims, slope=slope, dropout=0.7)
 
         # Keep the feature dimensions of input GNN the same
-        self.miRNA_emb_lin = torch.nn.Linear(1024, in_dims)
-        self.miRNA_sim_lin = torch.nn.Linear(data["miRNA"].similarity_feature.shape[-1], in_dims)
-        self.miRNA_ass_lin = torch.nn.Linear(data["miRNA"].association_feature.shape[-1], in_dims)
-        self.disease_sim_lin = torch.nn.Linear(data["disease"].similarity_feature.shape[-1], in_dims)
-        self.disease_ass_lin = torch.nn.Linear(data["disease"].association_feature.shape[-1], in_dims)
+        self.miRNA_emb_lin = torch.nn.Linear(96000, out_dims)
+        self.miRNA_sim_lin = torch.nn.Linear(data["miRNA"].similarity_feature.shape[-1], out_dims)
+        self.miRNA_ass_lin = torch.nn.Linear(data["miRNA"].association_feature.shape[-1], out_dims)
+        self.disease_sim_lin = torch.nn.Linear(data["disease"].similarity_feature.shape[-1], out_dims)
+        self.disease_ass_lin = torch.nn.Linear(data["disease"].association_feature.shape[-1], out_dims)
+
+        self.miRNA_emb_lin_update = torch.nn.Linear(1024, in_dims)
+        self.miRNA_sim_lin_update = torch.nn.Linear(data["miRNA"].similarity_feature.shape[-1], in_dims)
+        self.miRNA_ass_lin_update = torch.nn.Linear(data["miRNA"].association_feature.shape[-1], in_dims)
+        self.disease_sim_lin_update = torch.nn.Linear(data["disease"].similarity_feature.shape[-1], in_dims)
+        self.disease_ass_lin_update = torch.nn.Linear(data["disease"].association_feature.shape[-1], in_dims)
 
         # Controls the weight of each feature before input GNN
-        self.miRNA_emb_weight = torch.nn.Parameter(torch.ones(1))
-        self.miRNA_sim_weight = torch.nn.Parameter(torch.ones(1))
-        self.miRNA_ass_weight = torch.nn.Parameter(torch.ones(1))
-        self.disease_sim_weight = torch.nn.Parameter(torch.ones(1))
-        self.disease_ass_weight = torch.nn.Parameter(torch.ones(1))
+        self.miRNA_weights = torch.nn.Parameter(torch.ones(3)/3)
+        self.disease_weights = torch.nn.Parameter(torch.ones(2)/2)
+
+        self.miRNA_weights_update = torch.nn.Parameter(torch.ones(3)/3)
+        self.disease_weights_update = torch.nn.Parameter(torch.ones(2)/2)
+
+        self.agg_weights_miRNA = torch.nn.Parameter(torch.ones(2)/2)
+        self.agg_weights_disease = torch.nn.Parameter(torch.ones(2)/2)
 
         # Instantiate homogeneous GNN:
         self.gnn = GNNSAGEConv(in_dims, out_dims, slope)
-        # Convert GNN model into a heterogeneous variant:
         self.gnn = to_hetero(self.gnn, metadata=data.metadata())
 
+        self.gnn_update = GNNSAGEConv(in_dims, out_dims, slope)
+        self.gnn_update = to_hetero(self.gnn_update, metadata=data.metadata())
+
     def forward(self, data: HeteroData):
-        updated_data = self.updater(data)
+        miRNA_weights = F.softmax(self.miRNA_weights, dim=0)
+        disease_weights = F.softmax(self.disease_weights, dim=0)
+        miRNA_weights_update = F.softmax(self.miRNA_weights_update, dim=0)
+        disease_weights_update = F.softmax(self.disease_weights_update, dim=0)
 
-        miRNA_emb = self.miRNA_emb_lin(updated_data["miRNA"]["embedding_feature"]) * self.miRNA_emb_weight
-        miRNA_sim = self.miRNA_sim_lin(updated_data["miRNA"]["similarity_feature"]) * self.miRNA_sim_weight
-        miRNA_ass = self.miRNA_ass_lin(updated_data["miRNA"]["association_feature"]) * self.miRNA_ass_weight
+        agg_weights_miRNA = F.softmax(self.agg_weights_miRNA, dim=0)
+        agg_weights_disease = F.softmax(self.agg_weights_disease, dim=0)
 
-        disease_sim = self.disease_sim_lin(updated_data["disease"]["similarity_feature"]) * self.disease_sim_weight
-        disease_ass = self.disease_ass_lin(updated_data["disease"]["association_feature"]) * self.disease_ass_weight
-
+        miRNA_emb = self.miRNA_emb_lin(data["miRNA"]["embedding_feature"]) * miRNA_weights[0]
+        miRNA_sim = self.miRNA_sim_lin(data["miRNA"]["similarity_feature"]) * miRNA_weights[1]
+        miRNA_ass = self.miRNA_ass_lin(data["miRNA"]["association_feature"]) * miRNA_weights[2]
+        disease_sim = self.disease_sim_lin(data["disease"]["similarity_feature"]) * disease_weights[0]
+        disease_ass = self.disease_ass_lin(data["disease"]["association_feature"]) * disease_weights[1]
         x_dict = {
             "miRNA": miRNA_emb + miRNA_sim + miRNA_ass,
             "disease": disease_sim + disease_ass
         }
-        x_dict = self.gnn(x_dict, data.edge_index_dict)
-        return x_dict
+
+        updated_data = self.updater(data)
+        miRNA_emb_update = self.miRNA_emb_lin_update(updated_data["miRNA"]["embedding_feature"]) * miRNA_weights_update[0]
+        miRNA_sim_update = self.miRNA_sim_lin_update(updated_data["miRNA"]["similarity_feature"]) * miRNA_weights_update[1]
+        miRNA_ass_update = self.miRNA_ass_lin_update(updated_data["miRNA"]["association_feature"]) * miRNA_weights_update[2]
+        disease_sim_update = self.disease_sim_lin_update(updated_data["disease"]["similarity_feature"]) * disease_weights_update[0]
+        disease_ass_update = self.disease_ass_lin_update(updated_data["disease"]["association_feature"]) * disease_weights_update[1]
+        x_dict_update = {
+            "miRNA": miRNA_emb_update + miRNA_sim_update + miRNA_ass_update,
+            "disease": disease_sim_update + disease_ass_update
+        }
+        x_dict_update = self.gnn_update(x_dict_update, data.edge_index_dict)
 
 
-class RDGCNDecoder(torch.nn.Module):
+        x_dict_aggregated = {
+            "miRNA": x_dict["miRNA"] * agg_weights_miRNA[0] + x_dict_update["miRNA"] * agg_weights_miRNA[1],
+            "disease": x_dict["disease"] * agg_weights_disease[0] + x_dict_update["disease"] * agg_weights_disease[1]
+        }
+        return x_dict_aggregated
+
+
+class RDGCNDecoder_v3(torch.nn.Module):
     def __init__(self):
         super().__init__()
         self.activation = F.sigmoid
@@ -90,15 +124,14 @@ class GNNSAGEConv(torch.nn.Module):
         self.conv3 = SAGEConv(in_channels=out_channels * 2, out_channels=out_channels)
         self.LeakyReLU = LeakyReLU(slope)
 
-
     def forward(self, x, edge_index):
         x = self.conv1(x, edge_index)
         x = self.LeakyReLU(x)
         x = self.conv2(x, edge_index)
         x = self.LeakyReLU(x)
         x = self.conv3(x, edge_index)
-        x = self.LeakyReLU(x)
         return x
+
 
 class FeatureUpdater(torch.nn.Module):
     def __init__(self, data, in_dims, slope, dropout):
@@ -132,4 +165,3 @@ class FeatureUpdater(torch.nn.Module):
                     updated_features[node_type][feature_type] = self.feature_updaters[node_type][feature_type](
                         feature_data)
         return updated_features
-

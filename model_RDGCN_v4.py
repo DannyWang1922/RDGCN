@@ -5,7 +5,7 @@ from torch_geometric.data import HeteroData
 from torch_geometric.nn import SAGEConv, to_hetero, RGCNConv
 import torch.nn.functional as F
 
-class RDGCNModel(torch.nn.Module):
+class RDGCNModel_v4(torch.nn.Module):
     def __init__(self, encoder, decoder):
         super().__init__()
         self.encoder = encoder
@@ -16,10 +16,11 @@ class RDGCNModel(torch.nn.Module):
         res = self.decoder(data, x_dict)
         return res
 
-class RDGCNEncoder(torch.nn.Module):
-    def __init__(self, data, in_dims, out_dims, slope):
+
+class RDGCNEncoder_v4(torch.nn.Module):
+    def __init__(self, data, in_dims, out_dims, slope, dropout):
         super().__init__()
-        self.updater = FeatureUpdater(data=data, in_dims=in_dims, slope=slope, dropout=0.7)
+        self.updater = FeatureUpdater(data=data, in_dims=in_dims, slope=slope, dropout=dropout)
 
         # Keep the feature dimensions of input GNN the same
         self.miRNA_emb_lin = torch.nn.Linear(1024, in_dims)
@@ -29,11 +30,8 @@ class RDGCNEncoder(torch.nn.Module):
         self.disease_ass_lin = torch.nn.Linear(data["disease"].association_feature.shape[-1], in_dims)
 
         # Controls the weight of each feature before input GNN
-        self.miRNA_emb_weight = torch.nn.Parameter(torch.ones(1))
-        self.miRNA_sim_weight = torch.nn.Parameter(torch.ones(1))
-        self.miRNA_ass_weight = torch.nn.Parameter(torch.ones(1))
-        self.disease_sim_weight = torch.nn.Parameter(torch.ones(1))
-        self.disease_ass_weight = torch.nn.Parameter(torch.ones(1))
+        self.miRNA_weights = torch.nn.Parameter(torch.ones(3) / 3)
+        self.disease_weights = torch.nn.Parameter(torch.ones(2) / 2)
 
         # Instantiate homogeneous GNN:
         self.gnn = GNNSAGEConv(in_dims, out_dims, slope)
@@ -43,12 +41,15 @@ class RDGCNEncoder(torch.nn.Module):
     def forward(self, data: HeteroData):
         updated_data = self.updater(data)
 
-        miRNA_emb = self.miRNA_emb_lin(updated_data["miRNA"]["embedding_feature"]) * self.miRNA_emb_weight
-        miRNA_sim = self.miRNA_sim_lin(updated_data["miRNA"]["similarity_feature"]) * self.miRNA_sim_weight
-        miRNA_ass = self.miRNA_ass_lin(updated_data["miRNA"]["association_feature"]) * self.miRNA_ass_weight
+        miRNA_weights = F.softmax(self.miRNA_weights, dim=0)
+        disease_weights = F.softmax(self.disease_weights, dim=0)
 
-        disease_sim = self.disease_sim_lin(updated_data["disease"]["similarity_feature"]) * self.disease_sim_weight
-        disease_ass = self.disease_ass_lin(updated_data["disease"]["association_feature"]) * self.disease_ass_weight
+        miRNA_sim = self.miRNA_sim_lin(updated_data["miRNA"]["similarity_feature"]) * miRNA_weights[0]
+        miRNA_ass = self.miRNA_ass_lin(updated_data["miRNA"]["association_feature"]) * miRNA_weights[1]
+        miRNA_emb = self.miRNA_emb_lin(updated_data["miRNA"]["embedding_feature"]) * miRNA_weights[2]
+
+        disease_sim = self.disease_sim_lin(updated_data["disease"]["similarity_feature"]) * disease_weights[0]
+        disease_ass = self.disease_ass_lin(updated_data["disease"]["association_feature"]) * disease_weights[1]
 
         x_dict = {
             "miRNA": miRNA_emb + miRNA_sim + miRNA_ass,
@@ -57,8 +58,7 @@ class RDGCNEncoder(torch.nn.Module):
         x_dict = self.gnn(x_dict, data.edge_index_dict)
         return x_dict
 
-
-class RDGCNDecoder(torch.nn.Module):
+class RDGCNDecoder_v4(torch.nn.Module):
     def __init__(self):
         super().__init__()
         self.activation = F.sigmoid
@@ -90,7 +90,6 @@ class GNNSAGEConv(torch.nn.Module):
         self.conv3 = SAGEConv(in_channels=out_channels * 2, out_channels=out_channels)
         self.LeakyReLU = LeakyReLU(slope)
 
-
     def forward(self, x, edge_index):
         x = self.conv1(x, edge_index)
         x = self.LeakyReLU(x)
@@ -99,6 +98,7 @@ class GNNSAGEConv(torch.nn.Module):
         x = self.conv3(x, edge_index)
         x = self.LeakyReLU(x)
         return x
+
 
 class FeatureUpdater(torch.nn.Module):
     def __init__(self, data, in_dims, slope, dropout):
@@ -132,4 +132,3 @@ class FeatureUpdater(torch.nn.Module):
                     updated_features[node_type][feature_type] = self.feature_updaters[node_type][feature_type](
                         feature_data)
         return updated_features
-

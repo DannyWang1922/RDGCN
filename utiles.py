@@ -20,7 +20,7 @@ def get_miRNA_embedding_feature(miRNA_idx_file):
         embedding = np.load(f"data/miRNA_embedding/{miRNA_name}.npy", allow_pickle=True)
         if embedding.shape[0] == 3:  # miRNA without sequence
             node_features.append(np.zeros((64, 640)))  # padding with 64 x 640 zero
-            # print(miRNA_name)
+            print(miRNA_name)
         else:  # miRNA with sequence
             node_features.append(embedding)
 
@@ -192,7 +192,7 @@ def get_save_dir(base_dir_name):
     # 2. 在result目录中检查是否存在任何子目录，若不存在则创建result_0
     subdirectories = [d for d in os.listdir(base_dir_name) if os.path.isdir(os.path.join(base_dir_name, d))]
     if not subdirectories:
-        initial_subdir = os.path.join(base_dir_name, f"{base_dir_name}_0")
+        initial_subdir = os.path.join(base_dir_name, f"{base_dir_name}_1")
         os.makedirs(initial_subdir)
         # print(f"The subdirectory '{initial_subdir}' has been created.")
         return initial_subdir  # 直接返回，因为这是第一个创建的子目录
@@ -230,3 +230,4 @@ def get_all_edge_index(miRNA_num, disease_num):
     combination_tensor = torch.stack((grid1.flatten(), grid2.flatten()), dim=0)
 
     return combination_tensor
+
