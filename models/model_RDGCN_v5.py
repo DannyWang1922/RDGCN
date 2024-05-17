@@ -15,7 +15,6 @@ class RDGCNModel_v5(torch.nn.Module):
         res = self.decoder(data, x_dict)
         return res
 
-
 class RDGCNEncoder_v5(torch.nn.Module):
     def __init__(self, data, in_dims, out_dims, slope, dropout, aggr):
         super().__init__()
@@ -77,7 +76,6 @@ class RDGCNDecoder_v5(torch.nn.Module):
 
     def all_pairs_scores(self, x_miRNA, x_disease):
         scores_matrix = torch.matmul(x_miRNA, x_disease.t())
-        scores_matrix = self.activation(scores_matrix)
         return scores_matrix
 
 

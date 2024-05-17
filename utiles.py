@@ -177,9 +177,9 @@ def bulit_integrated_similarity():
     disease_similarity_integrated = integrate_similarity((disease_SS1 + disease_SS2) / 2, disease_similarity_weight,
                                                          gauss_disease)
 
-    np.savetxt('data/preprocessed/miRNA_similarity_integrated.txt', miRNA_similarity_integrated, fmt='%f',
+    np.savetxt('data/integrated_similarity/miRNA_similarity_integrated.txt', miRNA_similarity_integrated, fmt='%f',
                delimiter=' ')
-    np.savetxt('data/preprocessed/disease_similarity_integrated.txt', disease_similarity_integrated, fmt='%f',
+    np.savetxt('data/integrated_similarity/disease_similarity_integrated.txt', disease_similarity_integrated, fmt='%f',
                delimiter=' ')
 
 

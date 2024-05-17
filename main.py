@@ -5,18 +5,14 @@ import torch.nn.functional as F
 from sklearn.metrics import f1_score, roc_auc_score, average_precision_score, precision_score, recall_score
 from sklearn.model_selection import StratifiedKFold
 
-from torch_geometric.loader import LinkLoader, LinkNeighborLoader
+from torch_geometric.loader import LinkNeighborLoader
 from torch_geometric.transforms import RandomLinkSplit
 from RDGCN_Dataset import RDGCNDataset
-from model_RDGCN_v6 import RDGCNModel_v6, RDGCNEncoder_v6, RDGCNDecoder_v6
+from models.model_RDGCN_v5 import RDGCNModel_v5, RDGCNEncoder_v5, RDGCNDecoder_v5
+from models.model_RDGCN_v6 import RDGCNModel_v6, RDGCNEncoder_v6, RDGCNDecoder_v6
+from models.model_RDGCN_v7 import RDGCNModel_v7, RDGCNDecoder_v7, RDGCNEncoder_v7
 
 from utiles import plot_ROC, plot_PR, get_save_dir
-from model_SAGEConv import Model as Model_SAGEConv
-from model_RDGCN import RDGCNModel, RDGCNEncoder, RDGCNDecoder
-from model_RDGCN_v2 import RDGCNModel_v2, RDGCNEncoder_v2, RDGCNDecoder_v2
-from model_RDGCN_v3 import RDGCNModel_v3, RDGCNEncoder_v3, RDGCNDecoder_v3
-from model_RDGCN_v4 import RDGCNModel_v4, RDGCNEncoder_v4, RDGCNDecoder_v4
-from model_RDGCN_v5 import RDGCNModel_v5, RDGCNEncoder_v5, RDGCNDecoder_v5
 
 
 def RDGCN(epochs_num,
@@ -48,7 +44,7 @@ def RDGCN(epochs_num,
 
     dataset = RDGCNDataset(root="./data")
     data = dataset[0]
-    # print(data)
+    print(data)
 
     # After transform
     # 1. get edge_label and edge_label_index. edge_index = 5430*0.7 = 3801
@@ -130,7 +126,6 @@ def RDGCN(epochs_num,
     with open(f'{save_dir}/model_summary.txt', 'w') as file:
         file.write(params_str)
 
-
 def cross_validation_with_val_set(data,
                                   device,
                                   epochs_num,
@@ -203,9 +198,13 @@ def cross_validation_with_val_set(data,
         #     RDGCNEncoder_v5(data=data, in_dims=in_dims, out_dims=out_dims, slope=slope, dropout=dropout, aggr=aggr),
         #     RDGCNDecoder_v5())
 
-        model = RDGCNModel_v6(
-            RDGCNEncoder_v6(data=data, in_dims=in_dims, out_dims=out_dims, slope=slope, dropout=dropout, aggr=aggr),
-            RDGCNDecoder_v6())
+        # model = RDGCNModel_v6(
+        #     RDGCNEncoder_v6(data=data, in_dims=in_dims, out_dims=out_dims, slope=slope, dropout=dropout, aggr=aggr),
+        #     RDGCNDecoder_v6())
+
+        model = RDGCNModel_v7(
+            RDGCNEncoder_v7(data=data, in_dims=in_dims, out_dims=out_dims, slope=slope, dropout=dropout, aggr=aggr),
+            RDGCNDecoder_v7())
 
         model = model.to(device)
         optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)

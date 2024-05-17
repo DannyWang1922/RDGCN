@@ -6,12 +6,12 @@ categories = ['mean', 'sum', 'max']
 
 # Evaluation metrics for each category
 # 将每个指标的值提取到对应的列表中
-accuracy = [0.8471454880294658, 0.6808471454880296, 0.7767955801104972]
-precision = [0.8736855889313409, 0.8758703201444374, 0.7880323865180567]
-recall = [0.8117863720073665, 0.4386740331491713, 0.761694290976059]
-f1_score = [0.8411392289024839, 0.5649995768063857, 0.7726545729098534]
-roc_auc = [0.9278023666351253, 0.8572598177372146, 0.8410081092355748]
-pr_auc = [0.9287087304359737, 0.8352449909245371, 0.7838911379287624]
+accuracy = [0.8471454880294658, 0.7843462246777164, 0.7767955801104972]
+precision = [0.8736855889313409, 0.771763916666006, 0.7880323865180567]
+recall = [0.8117863720073665, 0.810681399631676, 0.761694290976059]
+f1_score = [0.8411392289024839, 0.7893969277925905, 0.7726545729098534]
+roc_auc = [0.9278023666351253, 0.8395782247862466, 0.8410081092355748]
+pr_auc = [0.9287087304359737, 0.7906518932626276, 0.7838911379287624]
 
 
 # Number of categories
@@ -40,7 +40,7 @@ ax.bar(indices + barWidth * 5, pr_auc, width=barWidth, color=color_cmap(5), edge
 # Adding labels and title
 ax.set_xlabel('Aggregation Function Type', fontsize=20)
 ax.set_ylabel('Metric Value', fontsize=20)
-ax.set_title('Different Aggregate Functions Performance (100 Epoch)', fontsize=20)
+ax.set_title('Different Aggregate Functions Performance (50 Epoch)', fontsize=20, fontweight='bold')
 
 # Setting the x-axis tick marks to correspond to the aggregate categories
 ax.set_xticks(indices + barWidth * 2.5)

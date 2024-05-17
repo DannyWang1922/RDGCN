@@ -1,0 +1,7 @@
+RDGCN: 原版，将更新后的节点特征输入gnn
+RDGCN_v2： 改进版，融合了三个字典，多个softmax权重参数，过拟合。x_dict_original, x_dict_original_agg, x_dict_update_agg
+RDGCN_v3： 融合原始dict和更新后的dic，，过拟合。 尝试使用softmax
+RDGCN_v4： 原版加softmax权重参数
+RDGCN_v5： 原版加softmax权重参数,并且重构代码 (最终版本)
+RDGCN_v6： 无特征更新 (对照实验)
+RDGCN_v7： 两个都没有 (对照实验)
